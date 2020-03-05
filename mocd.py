@@ -25,6 +25,7 @@ from collections import defaultdict
 }
 """
 
+
 def _merge_graphs(self, graph_one: dict, graph_two: dict) -> dict:
     merged_graph = defaultdict(list)
 
@@ -49,7 +50,8 @@ class MemoryCycle:
         self.dgraph = {}
         self.ograph = {}
         self.igraph = {}
-
+        self.igraph_one = {}
+        self.igraph_two = {}
 
     def read_stream(self) -> None:
         for cpu in self.cpus:
@@ -179,15 +181,15 @@ class MemoryCycle:
                             """
                             for node_index in range(i, len(temp_stream[num])):
                                 try:
-                                    self.igraph[key].append(
+                                    self.igraph_one[key].append(
                                         temp_stream[num][node_index]
                                     )
                                 except KeyError:
-                                    self.igraph[key] = [temp_stream[num][node_index]]
+                                    self.igraph_one[key] = [
+                                        temp_stream[num][node_index]
+                                    ]
 
         # PART 2 of inferred graph
-
-        igraph2 = {}
 
         for key, val in self.ograph.items():
             for v in val:
@@ -202,12 +204,12 @@ class MemoryCycle:
                         for i, op in enumerate(cpu):
                             if i > index:
                                 try:
-                                    igraph2[v].append(op)
+                                    self.igraph_two[v].append(op)
                                 except KeyError:
-                                    igraph2[v] = [op]
-        
+                                    self.igraph_two[v] = [op]
+
         # Remove STORE mappings from every LOAD after forming the inital edges
-        for key, val in igraph2.items():
+        for key, val in self.igraph_two.items():
             for v in val:
                 for cpu in self.stream:
                     for ins in cpu:
@@ -215,8 +217,7 @@ class MemoryCycle:
                         op, _, add = rest.partition(" ")
                         op, add = op.strip(), add.strip()
                         if index == v and op == "STORE":
-                            igraph2[key].remove(v)
-        pp.pprint(igraph2)
+                            self.igraph_two[key].remove(v)
 
 
 if __name__ == "__main__":
