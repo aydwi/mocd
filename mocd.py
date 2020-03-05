@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import pprint
+import networkx
 
 from collections import defaultdict
 
@@ -57,7 +58,7 @@ def is_cyclic(graph: dict) -> bool:
         path.remove(vertex)
         return False
 
-    return (any(visit(v) for v in graph))
+    return any(visit(v) for v in graph)
 
 
 class DetectMemCycle:
@@ -203,7 +204,10 @@ class DetectMemCycle:
                     else:
                         # Form additional edges here
                         for i, op in enumerate(cpu):
-                            if i > index:
+                            # Start at the index of the next instrcution after
+                            # encountering a STORE, create till the end, and do
+                            # but create self edges as they are dundant
+                            if i > index and v.split(".")[0] != op.split(".")[0]:
                                 try:
                                     self.igraph_two[v].append(op)
                                 except KeyError:
@@ -218,6 +222,8 @@ class DetectMemCycle:
                         op, add = op.strip(), add.strip()
                         if index == v and op == "STORE":
                             self.igraph_two[key].remove(v)
+        pp.pprint(self.ograph)
+        pp.pprint(self.igraph_two)
 
         self.igraph = merge_graphs(self.igraph_one, self.igraph_two)
 
@@ -235,6 +241,7 @@ if __name__ == "__main__":
     non_inferred_graph = merge_graphs(o.dgraph, o.ograph)
     fin_graph = merge_graphs(non_inferred_graph, o.igraph)
 
+
     # View the graphs
     print("\nDirect Graph\n")
     pp.pprint(o.dgraph)
@@ -248,4 +255,9 @@ if __name__ == "__main__":
     print("\nFinal Graph\n")
     pp.pprint(fin_graph)
 
-    print("\nIs cyclic: {}\n".format(is_cyclic(fin_graph)))
+    print("\nIs Final Graph Cyclic:\n\n{}".format(is_cyclic(fin_graph)))
+
+    if is_cyclic(fin_graph):
+        G = networkx.DiGraph(fin_graph)
+        print("\nCyclic Path(s) Found\n")
+        pp.pprint(list(networkx.simple_cycles(G)))
