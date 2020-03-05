@@ -222,8 +222,6 @@ class DetectMemCycle:
                         op, add = op.strip(), add.strip()
                         if index == v and op == "STORE":
                             self.igraph_two[key].remove(v)
-        pp.pprint(self.ograph)
-        pp.pprint(self.igraph_two)
 
         self.igraph = merge_graphs(self.igraph_one, self.igraph_two)
 
@@ -241,7 +239,6 @@ if __name__ == "__main__":
     non_inferred_graph = merge_graphs(o.dgraph, o.ograph)
     fin_graph = merge_graphs(non_inferred_graph, o.igraph)
 
-
     # View the graphs
     print("\nDirect Graph\n")
     pp.pprint(o.dgraph)
@@ -255,7 +252,7 @@ if __name__ == "__main__":
     print("\nFinal Graph\n")
     pp.pprint(fin_graph)
 
-    print("\nIs Final Graph Cyclic:\n\n{}".format(is_cyclic(fin_graph)))
+    print("\nIs Final Graph Cyclic: {}".format(is_cyclic(fin_graph)))
 
     if is_cyclic(fin_graph):
         G = networkx.DiGraph(fin_graph)
