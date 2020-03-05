@@ -26,7 +26,7 @@ from collections import defaultdict
 """
 
 
-def _merge_graphs(self, graph_one: dict, graph_two: dict) -> dict:
+def merge_graphs(graph_one: dict, graph_two: dict) -> dict:
     merged_graph = defaultdict(list)
 
     for key in set().union(graph_one, graph_two):
@@ -42,7 +42,25 @@ def _merge_graphs(self, graph_one: dict, graph_two: dict) -> dict:
     return merged_graph
 
 
-class MemoryCycle:
+def is_cyclic(graph: dict) -> bool:
+    path = set()
+    visited = set()
+
+    def visit(vertex):
+        if vertex in visited:
+            return False
+        visited.add(vertex)
+        path.add(vertex)
+        for neighbour in graph.get(vertex, ()):
+            if neighbour in path or visit(neighbour):
+                return True
+        path.remove(vertex)
+        return False
+
+    return (any(visit(v) for v in graph))
+
+
+class DetectMemCycle:
     def __init__(self, cpus: list) -> None:
 
         self.cpus = cpus
@@ -58,23 +76,6 @@ class MemoryCycle:
             cpu_name = cpu.split(".")[0]
             with open(cpu, "r") as f:
                 self.stream.append([cpu_name + "." + line.rstrip() for line in f])
-
-    def is_cyclic(self, graph: dict) -> bool:
-        path = set()
-        visited = set()
-
-        def visit(vertex):
-            if vertex in visited:
-                return False
-            visited.add(vertex)
-            path.add(vertex)
-            for neighbour in graph.get(vertex, ()):
-                if neighbour in path or visit(neighbour):
-                    return True
-            path.remove(vertex)
-            return False
-
-        return any(visit(v) for v in graph)
 
     def build_direct_graph(self) -> None:
         for cpu in self.stream:
@@ -142,7 +143,7 @@ class MemoryCycle:
         for i in self.stream:
             temp_stream.append([x.split(" ")[0] for x in i])
 
-        # PART 1 of inferred graph
+        # Build part 1 of inferred graph -- igraph_one
 
         # Optimization to avoid generating redundant edges
         # Generates an optimized ograph by removing second
@@ -189,7 +190,7 @@ class MemoryCycle:
                                         temp_stream[num][node_index]
                                     ]
 
-        # PART 2 of inferred graph
+        # Build part 2 of inferred graph -- igraph_two
 
         for key, val in self.ograph.items():
             for v in val:
@@ -208,7 +209,6 @@ class MemoryCycle:
                                 except KeyError:
                                     self.igraph_two[v] = [op]
 
-        # Remove STORE mappings from every LOAD after forming the inital edges
         for key, val in self.igraph_two.items():
             for v in val:
                 for cpu in self.stream:
@@ -219,12 +219,33 @@ class MemoryCycle:
                         if index == v and op == "STORE":
                             self.igraph_two[key].remove(v)
 
+        self.igraph = merge_graphs(self.igraph_one, self.igraph_two)
+
 
 if __name__ == "__main__":
     pp = pprint.PrettyPrinter()
-    o = MemoryCycle(["cpu_0.txt", "cpu_1.txt"])
+
+    o = DetectMemCycle(["cpu_0.txt", "cpu_1.txt"])
 
     o.read_stream()
     o.build_direct_graph()
     o.build_observability_graph()
     o.build_inferred_graph()
+
+    non_inferred_graph = merge_graphs(o.dgraph, o.ograph)
+    fin_graph = merge_graphs(non_inferred_graph, o.igraph)
+
+    # View the graphs
+    print("\nDirect Graph\n")
+    pp.pprint(o.dgraph)
+
+    print("\nObservability Graph\n")
+    pp.pprint(o.ograph)
+
+    print("\nInferred Graph\n")
+    pp.pprint(o.igraph)
+
+    print("\nFinal Graph\n")
+    pp.pprint(fin_graph)
+
+    print("\nIs cyclic: {}\n".format(is_cyclic(fin_graph)))
