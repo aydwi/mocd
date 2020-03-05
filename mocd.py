@@ -25,6 +25,21 @@ from collections import defaultdict
 }
 """
 
+def _merge_graphs(self, graph_one: dict, graph_two: dict) -> dict:
+    merged_graph = defaultdict(list)
+
+    for key in set().union(graph_one, graph_two):
+        for dic in [graph_one, graph_two]:
+            if key in dic:
+                merged_graph[key] += dic[key]
+
+    merged_graph = dict(merged_graph)
+
+    for k, v in merged_graph.items():
+        merged_graph[k] = list(set(v))
+
+    return merged_graph
+
 
 class MemoryCycle:
     def __init__(self, cpus: list) -> None:
@@ -35,20 +50,6 @@ class MemoryCycle:
         self.ograph = {}
         self.igraph = {}
 
-    def _merge_graphs(self, graph_one: dict, graph_two: dict) -> dict:
-        merged_graph = defaultdict(list)
-
-        for key in set().union(graph_one, graph_two):
-            for dic in [graph_one, graph_two]:
-                if key in dic:
-                    merged_graph[key] += dic[key]
-
-        merged_graph = dict(merged_graph)
-
-        for k, v in merged_graph.items():
-            merged_graph[k] = list(set(v))
-
-        return merged_graph
 
     def read_stream(self) -> None:
         for cpu in self.cpus:
@@ -132,12 +133,14 @@ class MemoryCycle:
 
     def build_inferred_graph(self) -> None:
 
-        temp_ograph = {}
+        lean_ograph = {}
         temp_stream = []
 
         # Used for comparison later instead of vanilla stream
         for i in self.stream:
             temp_stream.append([x.split(" ")[0] for x in i])
+
+        # PART 1 of inferred graph
 
         # Optimization to avoid generating redundant edges
         # Generates an optimized ograph by removing second
@@ -154,15 +157,15 @@ class MemoryCycle:
                 if category not in category_store and category != key.split(".")[0]:
                     category_store.append(category)
                     new_val.append(i)
-            temp_ograph[key] = new_val
+            lean_ograph[key] = new_val
 
-        for key, val in temp_ograph.items():
+        for key, val in lean_ograph.items():
             for num, cpu in enumerate(temp_stream):
                 for i, unit in enumerate(cpu):
                     for v in val:
                         if v == unit:
                             # Uncomment the print statement below to see the
-                            # inferred edges being drawn. Also, replace temp_ograph
+                            # inferred edges being drawn. Also, replace lean_ograph
                             # with self.ograph to see the un-optimized calculation
                             """
                             print(
@@ -181,6 +184,39 @@ class MemoryCycle:
                                     )
                                 except KeyError:
                                     self.igraph[key] = [temp_stream[num][node_index]]
+
+        # PART 2 of inferred graph
+
+        igraph2 = {}
+
+        for key, val in self.ograph.items():
+            for v in val:
+                # Look up v's key's identity in temp_stream
+                for cpu in temp_stream:
+                    try:
+                        index = cpu.index(key)
+                    except ValueError:
+                        pass
+                    else:
+                        # Form additional edges here
+                        for i, op in enumerate(cpu):
+                            if i > index:
+                                try:
+                                    igraph2[v].append(op)
+                                except KeyError:
+                                    igraph2[v] = [op]
+        
+        # Remove STORE mappings from every LOAD after forming the inital edges
+        for key, val in igraph2.items():
+            for v in val:
+                for cpu in self.stream:
+                    for ins in cpu:
+                        index, _, rest = ins.partition(" ")
+                        op, _, add = rest.partition(" ")
+                        op, add = op.strip(), add.strip()
+                        if index == v and op == "STORE":
+                            igraph2[key].remove(v)
+        pp.pprint(igraph2)
 
 
 if __name__ == "__main__":
