@@ -206,7 +206,7 @@ class DetectMemCycle:
                         for i, op in enumerate(cpu):
                             # Start at the index of the next instrcution after
                             # encountering a STORE, create till the end, and do
-                            # but create self edges as they are dundant
+                            # but create self edges as they are redundant
                             if i > index and v.split(".")[0] != op.split(".")[0]:
                                 try:
                                     self.igraph_two[v].append(op)
